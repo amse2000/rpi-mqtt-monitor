@@ -72,6 +72,35 @@ def check_voltage():
 
     return voltage.decode('utf8')
 
+def check_undervoltage():
+    try:
+        full_cmd = "vcgencmd get_throttled | cut -f2 -d= | sed 's/000//'"
+        MESSAGES = {
+            0: 'Under-voltage!',
+            1: 'ARM frequency capped!',
+            2: 'Currently throttled!',
+            3: 'Soft temperature limit active',
+            16: 'Under-voltage has occurred since last reboot.',
+            17: 'Throttling has occurred since last reboot.',
+            18: 'ARM frequency capped has occurred since last reboot.',
+            19: 'Soft temperature limit has occurred'
+        }
+
+        throttled_output = subprocess.Popen(full_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0]
+        #throttled_output = 'throttled=0x5005' #simulate 0 and 16
+        throttled_binary = bin(int(throttled_output, 0))
+
+        messages = ""
+        for position, message in MESSAGES.items():
+          if len(throttled_binary) > position and throttled_binary[0 - position - 1] == '1':
+              messages += message  + '\n'
+
+    except Exception as e:
+            messages = repr(e)
+
+    return messages
+    #better to be split up in different state information
+
 
 def check_swap():
     full_cmd = "free | grep -i swap | awk 'NR == 1 {if($2 > 0) {print $3/$2*100} else {print 0}}'"
@@ -283,6 +312,9 @@ def print_measured_values(cpu_load=0, cpu_temp=0, used_space=0, voltage=0, sys_c
 
 :: Release notes {}: 
 {}""".format(script_dir, remote_version, get_release_notes(remote_version).strip())
+    output += """\n
+:: UndeVoltageCheck: 
+{}""".format(check_undervoltage())
     print(output)
     
 
